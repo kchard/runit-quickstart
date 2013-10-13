@@ -34,8 +34,261 @@
         <h3>
 <a name="abstract" class="anchor" href="#abstract"><span class="octicon octicon-link"></span></a>Abstract</h3>
 
+<p>The purpose of this tutorial is to get you up and running with runit as quickly as possible. According to the official documentaion, runit is "<em>a UNIX init scheme with service supervision</em>". Basically this means that runit provides:</p>
+
+<ol>
+<li>Automatic starting of services when the system starts</li>
+<li>Automatic monitoring and restarting of services if they terminate</li>
+</ol><p>This tutorial will describe the basic usage of the utilities included in the runit package by providing a template to bootstrap the management of new services as well as providing a simple example service. The purpose of process supervision is to automate the task of keeping your infrastrucutre up and running. If you are serious about creating a robust environment, you should use this tutorial as a starting point to get you over the initial hump associated with learning a new tool and then continue by checking out the official documentation and performing further experimentation. </p>
+
+<p>Official Documentation: <a href="http://smarden.org/runit/">http://smarden.org/runit/</a></p>
+
 <h3>
 <a name="what-you-will-learn" class="anchor" href="#what-you-will-learn"><span class="octicon octicon-link"></span></a>What You Will Learn</h3>
+
+<ol>
+<li>How to create a runit template used to configure new montitored services</li>
+<li>How to setup your first monitored service</li>
+<li>How to manage monitored services manually</li>
+</ol><h3>
+<a name="0-prerequisites" class="anchor" href="#0-prerequisites"><span class="octicon octicon-link"></span></a>0. Prerequisites</h3>
+
+<p>Make sure that you have runit installed on your system. Most linux distributions should have a runit package available in their repositories. For example, if you are running a Debian based release you can install runit by executing the following command:</p>
+
+<pre><code># apt-get install runit
+</code></pre>
+
+<p><em>Note: Snippets starting with the '#' character represent command you should enter in your shell excluding the '#'.</em></p>
+
+<p>To verify that you have successfully installed runit and it is up and running, look for a process running the <code>runsvdir</code> command by executing the following:</p>
+
+<pre><code># ps -ef | grep runsvdir
+</code></pre>
+
+<p>The output of the command should be similar to this:</p>
+
+<pre><code>root      2783     1  0 15:34 ?        00:00:00 runsvdir -P /etc/service log: ...........................................................................................................................................................................................................................................................................................................................................................................................................
+</code></pre>
+
+<p>If you see a <code>runsvdir</code> process then continue on. If not ensure that runit was installed properly by checking the documentation for you distro. The <code>runsvdir</code> utility is the first of several that we will encounter in this tutorial. The design of runit takes a very "Unixy" approach by breaking down functionality into several small utilities each responsible for a single task. This approach allows the simple components to be composed in various ways to suit you needs. The core runit utilities are <code>runsvdir</code>, <code>runsv</code>, <code>chpst</code>, <code>svlogd</code>, and <code>sv</code>. Throughout this tutorial we will combine these utilities to configure and run a managed service.</p>
+
+<h3>
+<a name="1-creating-a-template" class="anchor" href="#1-creating-a-template"><span class="octicon octicon-link"></span></a>1. Creating a Template</h3>
+
+<p>The first thing we need to do is take a closer look at what the <code>runsvdir -P /etc/service log:.......</code> command is doing. Bascially, this command is watching the <code>/etc/service</code> directory for files used to configure a monitored service. A monitored service is configured by adding a subdirecotry to <code>/etc/service</code> with a <code>run</code> script in it.  When <code>runsvdir</code> finds a new service configuration, it starts a new <code>runsv</code> process to manage the service. As far as <code>runsvdir</code> is concerned, there really is not much more to it that that. Remember that runit's philosophy is to provide simple utilities with a single responsibility. Check out the man page for further details:</p>
+
+<pre><code># man runsvdir
+</code></pre>
+
+<p>Make sure that the <code>/etc/service</code> directory exists and if it does not, create it with the following command:</p>
+
+<pre><code># mkdir /etc/service
+</code></pre>
+
+<p>Rather than adding our configuration files directly to the <code>/etc/service</code> directory, let's create a staging directory that we can use to develop and test our configurations. Once we are happy with our service configuration, we can deploy it by creating a symbolic link to it from the <code>/etc/service</code> directory. You can use any directory that you like for staging, but I like to use <code>/etc/runit</code>. Go ahead and create your staging directory now.</p>
+
+<pre><code># mkdir /etc/runit
+</code></pre>
+
+<p>Before creating our first real service configuration, let's create a template. This template will illustrate the basics of using runit and can be used to quickly create new configurations in the future. Create a directory for our template by running this command:</p>
+
+<pre><code># mkdir /etc/runit/template
+</code></pre>
+
+<p>Next, create a script named <code>run</code> in the template directory with the following contents:</p>
+
+<pre><code>#!/bin/sh -e
+exec 2&gt;&amp;1
+exec chpst -u USER COMMAND
+</code></pre>
+
+<p>Make the <code>run</code> script executable by running:</p>
+
+<pre><code># chmod +x /etc/runit/template/run
+</code></pre>
+
+<p>This script is quite simple. First it redirects all output from stderr to stdout. Next, it executes some <code>COMMAND</code> as the given <code>USER</code> with the <code>chpst</code> utility. The <code>chpst</code> utility allows us to configure how the command will be executed. Because the <code>run</code> script will be executed as the <code>root</code> user, we can use <code>chpst</code> to change the context to a normal user with limited permissions. <code>chpst</code> has many more options for configuring the context in which to execute a command. Check out the man page for more info.</p>
+
+<pre><code># man chpst
+</code></pre>
+
+<p>When the <code>runsvdir</code> process detects a new directory in <code>/etc/service</code> it will start a new <code>runsv</code> process that will be responible for executing and monitoring the <code>run</code> script. Take a look at the <code>runsv</code> man page for more details.</p>
+
+<pre><code># man runsv
+</code></pre>
+
+<p>You may have noticed that the man page for <code>runsv</code> mentions that it can optionally start an appendant log service. Because logging is such a critical part of monitoring an environment, let's create a template script for logging the output of our monitored process.</p>
+
+<p>To setup logging for our service, create a new <code>log</code> directory by running the following command:</p>
+
+<pre><code># mkdir /etc/runit/template/log
+</code></pre>
+
+<p>In the new directory create a script named <code>run</code> with the following contets:</p>
+
+<pre><code>#!/bin/sh
+exec chpst -u USER svlogd -tt LOGDIR
+</code></pre>
+
+<p>Make the <code>run</code> script executable by running the following command:</p>
+
+<pre><code># chmod +x /etc/runit/template/log/run
+</code></pre>
+
+<p>This script uses <code>chpst</code> to start a <code>svlogd</code> daemon as the given <code>USER</code> wirting logs to the <code>LOGDIR</code> directory. For details on logging configuration, check out the <code>svlogd</code> man page.</p>
+
+<pre><code># man svlogd
+</code></pre>
+
+<p>When <code>runsvdir</code> notices a monitor configuration in a new directory under <code>/etc/service</code>, it looks for a sub directory named <code>log</code>. If it finds one it starts a new <code>runsv</code> process that will execute and monitor the <code>run</code> script in the <code>log</code> directory. </p>
+
+<h3>
+<a name="2-an-example-service" class="anchor" href="#2-an-example-service"><span class="octicon octicon-link"></span></a>2. An Example Service</h3>
+
+<p>Let's take our template and create a simple example service configuration. First, create a new user that will be used by <code>chpst</code> in the <code>run</code> script. You can name the user anything you want. </p>
+
+<pre><code># adduser foo
+</code></pre>
+
+<p>Next, let's create a directory to host the service and change its ownership to our new user. You can choose any directory that you like. I like to setup applications in the <code>opt</code> directory.</p>
+
+<pre><code># mkdir /opt/example
+# chown foo:foo /opt/example
+</code></pre>
+
+<p>Now that we have a home for our service, let's create a simple script that will stand in for a real service. Change to the new <code>foo</code> user:</p>
+
+<pre><code># su foo
+</code></pre>
+
+<p>Create a new file in <code>/opt/example</code> called <code>foo-service.sh</code> and add the following contents:</p>
+
+<pre><code>#!/bin/bash
+
+echo "Started service..."
+
+for i in {1..30}
+do
+    echo "Doing stuff..."
+    sleep 1
+done
+
+echo "Oh no I crashed..." &gt;&amp;2
+exit 1
+</code></pre>
+
+<p>Make this script executable by executing this command:</p>
+
+<pre><code># chmod +x /opt/example/foo-service.sh
+</code></pre>
+
+<p>This script will simulate a real application that crashes periodically by logging some information for 30 seconds, logging an error to stderr, and then exiting with a non zero status. Try it out by executing:</p>
+
+<pre><code># /opt/example/foo-service.sh
+</code></pre>
+
+<p>Next, create a directory that will contain the logs for the service.</p>
+
+<pre><code># mkdir /opt/example/logs
+</code></pre>
+
+<p>That's everthing we need to do as the <code>foo</code> user, so switch back to <code>root</code> by executing:</p>
+
+<pre><code># exit
+</code></pre>
+
+<p>Now we are ready to use the template we defined to configure <code>runit</code> to monitor our example service. Create the configuration in our staging directory by copying the template to a new directory named <code>example</code>.</p>
+
+<pre><code># cp -R /etc/runit/template /etc/runit/example
+</code></pre>
+
+<p>Update the <code>/etc/runit/example/run</code> script to execute the <code>foo-service.sh</code> script as the <code>foo</code> user.</p>
+
+<pre><code>#!/bin/sh -e
+exec 2&gt;&amp;1
+exec chpst -u foo /opt/example/foo-service.sh
+</code></pre>
+
+<p>Update the <code>/etc/runit/example/log/run</code> log script log to the <code>/etc/example/logs</code> directory as the <code>foo</code> user.</p>
+
+<pre><code>#!/bin/sh
+exec chpst -u foo svlogd -tt /opt/example/logs
+</code></pre>
+
+<p>Before we deploy the service to <code>/etc/service</code>, let's test it to make sure everything is setup properly.</p>
+
+<pre><code># /etc/runit/example/run
+</code></pre>
+
+<p>If everything is ok, you should see the script log output for 30 seconds, log an error and then terminate.</p>
+
+<p>Finally, we are ready to deploy the service. Create a symbolic link in <code>/etc/service</code> to our staging location.</p>
+
+<pre><code># ln -s /etc/runit/example /etc/service/example
+</code></pre>
+
+<p>The <code>runsvdir</code> process should have noticed our new monitor configuration and started two <code>runsv</code> processes to execute the service and run the log daemon. To verify that everything is working, check the status of our service.</p>
+
+<pre><code># sv status example
+</code></pre>
+
+<p>You should see output similar to what is shown below to indicate the service and logger are running.</p>
+
+<pre><code>run: example: (pid 3483) 3s; run: log: (pid 3324) 154s
+</code></pre>
+
+<p>You can watch the output of the service by tailing the log.</p>
+
+<pre><code># tail -f /opt/example/logs/current
+</code></pre>
+
+<p>You should see the service logging output, logging an error, and then starting over as the <code>runsv</code> process notices the process terminate and restarts it.</p>
+
+<h3>
+<a name="3-managing-services" class="anchor" href="#3-managing-services"><span class="octicon octicon-link"></span></a>3. Managing Services</h3>
+
+<p>Finally, let's take a look at the <code>sv</code> utility. <code>sv</code> is used to manually manage your services. </p>
+
+<p>To check the status of the example service run:</p>
+
+<pre><code># sv status example
+</code></pre>
+
+<p>To stop the example service run:</p>
+
+<pre><code># sv stop example
+</code></pre>
+
+<p>You will notice if you watch the logs that the service is no longer writing any output. Once you stop a service with <code>sv</code>, it will not be restarted automatically until you explicitly restart it.</p>
+
+<p>To start the service again run:</p>
+
+<pre><code># sv start example
+</code></pre>
+
+<p>To stop and then start a service run:</p>
+
+<pre><code># sv restart example
+</code></pre>
+
+<p>Make sure to check out the <code>sv</code> man page to see additional options.</p>
+
+<pre><code># man sv
+</code></pre>
+
+<h3>
+<a name="start-your-monitors" class="anchor" href="#start-your-monitors"><span class="octicon octicon-link"></span></a>Start Your Monitors!!!</h3>
+
+<p>With what you have learned in this tutorial, you should now be able to configure services to be monitored with <code>runit</code>. Try using the template to monitor a web application, some web services, or your CI server.   </p>
+
+<h3>
+<a name="contact-me" class="anchor" href="#contact-me"><span class="octicon octicon-link"></span></a>Contact Me</h3>
+
+<p>If you have any questions or would like further clarification, please feel free to shoot me an email. I would be glad to help. </p>
+
+<p>Kevin</p>
+
+<p><a href="mailto:krchard@gmail.com">krchard@gmail.com</a></p>
       </section>
     </div>
 
