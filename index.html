@@ -34,12 +34,12 @@
         <h3>
 <a name="abstract" class="anchor" href="#abstract"><span class="octicon octicon-link"></span></a>Abstract</h3>
 
-<p>The purpose of this tutorial is to get you up and running with runit as quickly as possible. According to the official documentaion, runit is "<em>a UNIX init scheme with service supervision</em>". Basically this means that runit provides:</p>
+<p>The purpose of this tutorial is to get you up and running with runit as quickly as possible. According to the official documentation, runit is "<em>a UNIX init scheme with service supervision</em>". Basically this means that runit provides:</p>
 
 <ol>
 <li>Automatic starting of services when the system starts</li>
 <li>Automatic monitoring and restarting of services if they terminate</li>
-</ol><p>This tutorial will describe the basic usage of the utilities included in the runit package by providing a template to bootstrap the management of new services as well as providing a simple example service. The purpose of process supervision is to automate the task of keeping your infrastrucutre up and running. If you are serious about creating a robust environment, you should use this tutorial as a starting point to get you over the initial hump associated with learning a new tool and then continue by checking out the official documentation and performing further experimentation. </p>
+</ol><p>This tutorial will describe the basic usage of the utilities included in the runit package by providing a template to bootstrap the management of new services as well as providing a simple example service. The purpose of process supervision is to automate the task of keeping your infrastructure up and running. If you are serious about creating a robust environment, you should use this tutorial as a starting point to get you over the initial hump associated with learning a new tool and then continue by checking out the official documentation and performing further experimentation. </p>
 
 <p>Official Documentation: <a href="http://smarden.org/runit/">http://smarden.org/runit/</a></p>
 
@@ -47,7 +47,7 @@
 <a name="what-you-will-learn" class="anchor" href="#what-you-will-learn"><span class="octicon octicon-link"></span></a>What You Will Learn</h3>
 
 <ol>
-<li>How to create a runit template used to configure new montitored services</li>
+<li>How to create a runit template used to configure new monitored services</li>
 <li>How to setup your first monitored service</li>
 <li>How to manage monitored services manually</li>
 </ol><h3>
@@ -75,7 +75,7 @@
 <h3>
 <a name="1-creating-a-template" class="anchor" href="#1-creating-a-template"><span class="octicon octicon-link"></span></a>1. Creating a Template</h3>
 
-<p>The first thing we need to do is take a closer look at what the <code>runsvdir -P /etc/service log:.......</code> command is doing. Bascially, this command is watching the <code>/etc/service</code> directory for files used to configure a monitored service. A monitored service is configured by adding a subdirecotry to <code>/etc/service</code> with a <code>run</code> script in it.  When <code>runsvdir</code> finds a new service configuration, it starts a new <code>runsv</code> process to manage the service. As far as <code>runsvdir</code> is concerned, there really is not much more to it that that. Remember that runit's philosophy is to provide simple utilities with a single responsibility. Check out the man page for further details:</p>
+<p>The first thing we need to do is take a closer look at what the <code>runsvdir -P /etc/service log:.......</code> command is doing. Basically, this command is watching the <code>/etc/service</code> directory for files used to configure a monitored service. A monitored service is configured by adding a subdirecotry to <code>/etc/service</code> with a <code>run</code> script in it.  When <code>runsvdir</code> finds a new service configuration, it starts a new <code>runsv</code> process to manage the service. As far as <code>runsvdir</code> is concerned, there really is not much more to it that that. Remember that runit's philosophy is to provide simple utilities with a single responsibility. Check out the man page for further details:</p>
 
 <pre><code># man runsvdir
 </code></pre>
@@ -112,7 +112,7 @@ exec chpst -u USER COMMAND
 <pre><code># man chpst
 </code></pre>
 
-<p>When the <code>runsvdir</code> process detects a new directory in <code>/etc/service</code> it will start a new <code>runsv</code> process that will be responible for executing and monitoring the <code>run</code> script. Take a look at the <code>runsv</code> man page for more details.</p>
+<p>When the <code>runsvdir</code> process detects a new directory in <code>/etc/service</code> it will start a new <code>runsv</code> process that will be responsible for executing and monitoring the <code>run</code> script. Take a look at the <code>runsv</code> man page for more details.</p>
 
 <pre><code># man runsv
 </code></pre>
@@ -124,7 +124,7 @@ exec chpst -u USER COMMAND
 <pre><code># mkdir /etc/runit/template/log
 </code></pre>
 
-<p>In the new directory create a script named <code>run</code> with the following contets:</p>
+<p>In the new directory create a script named <code>run</code> with the following contents:</p>
 
 <pre><code>#!/bin/sh
 exec chpst -u USER svlogd -tt LOGDIR
@@ -135,7 +135,7 @@ exec chpst -u USER svlogd -tt LOGDIR
 <pre><code># chmod +x /etc/runit/template/log/run
 </code></pre>
 
-<p>This script uses <code>chpst</code> to start a <code>svlogd</code> daemon as the given <code>USER</code> wirting logs to the <code>LOGDIR</code> directory. For details on logging configuration, check out the <code>svlogd</code> man page.</p>
+<p>This script uses <code>chpst</code> to start a <code>svlogd</code> daemon as the given <code>USER</code> writing logs to the <code>LOGDIR</code> directory. For details on logging configuration, check out the <code>svlogd</code> man page.</p>
 
 <pre><code># man svlogd
 </code></pre>
@@ -192,7 +192,7 @@ exit 1
 <pre><code># mkdir /opt/example/logs
 </code></pre>
 
-<p>That's everthing we need to do as the <code>foo</code> user, so switch back to <code>root</code> by executing:</p>
+<p>That's everything we need to do as the <code>foo</code> user, so switch back to <code>root</code> by executing:</p>
 
 <pre><code># exit
 </code></pre>
